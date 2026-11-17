@@ -14,27 +14,46 @@ jobs:
   import-android:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout destination task-mate2
+      - name: Checkout destination TaskMate2
         uses: actions/checkout@v4
         with:
           ref: main
           persist-credentials: true
 
-      - name: Download original Task-new source
+      - name: Download Task-new source archive
+        shell: bash
         run: |
-          git clone --depth 1 --branch main \
-            https://github.com/alfianwahyu035-boop/Task-new.git \
-            "$RUNNER_TEMP/task-new-source"
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/task-new-source"
+          echo "Downloading public Task-new source archive..."
+          if ! curl -fLSs --retry 3 \
+            "https://codeload.github.com/alfianwahyu035-boop/Task-new/tar.gz/refs/heads/main" \
+            -o "$RUNNER_TEMP/task-new.tar.gz"; then
+            echo "::error::Cannot download Task-new source. Check whether the source repository and its main branch are accessible from GitHub Actions."
+            exit 1
+          fi
+          tar -xzf "$RUNNER_TEMP/task-new.tar.gz" \
+            -C "$RUNNER_TEMP/task-new-source" \
+            --strip-components=1
+          test -f "$RUNNER_TEMP/task-new-source/package.json" || {
+            echo "::error::Source package.json not found in downloaded archive."
+            exit 1
+          }
 
-      - name: Copy to android-source without touching website root
+      - name: Copy source into android-source only
+        shell: bash
         run: |
+          set -euo pipefail
           rm -rf android-source
           mkdir -p android-source
           cp -a "$RUNNER_TEMP/task-new-source/." android-source/
           rm -rf android-source/.git
+          echo "Copied Task-new source to android-source/; website root untouched."
 
-      - name: Commit Android source to task-mate2
+      - name: Commit and push imported source
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A -- android-source
@@ -42,5 +61,8 @@ jobs:
             echo "Android source is already up to date."
             exit 0
           fi
-          git commit -m "Import Task-new Android source into android-source"
-          git push origin HEAD:main
+          git commit -m "Import Task-new into android-source"
+          if ! git push origin HEAD:main; then
+            echo "::error::Push failed. Check Settings > Actions > General > Workflow permissions (read/write), branch protection, and repository rulesets."
+            exit 1
+          fi
