@@ -1,0 +1,73 @@
+name: Import Android source from Task-new
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: taskmate-import-android
+  cancel-in-progress: false
+
+jobs:
+  import-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout destination TaskMate2
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Check source repository token
+        shell: bash
+        env:
+          SOURCE_REPO_TOKEN: ${{ secrets.SOURCE_REPO_TOKEN }}
+        run: |
+          if [ -z "$SOURCE_REPO_TOKEN" ]; then
+            echo '::error::Secret SOURCE_REPO_TOKEN belum dibuat. Buat fine-grained PAT akun pemilik Task-new dengan Contents: Read-only, lalu simpan sebagai Actions secret di task-mate2.'
+            exit 1
+          fi
+
+      - name: Checkout Task-new with source token
+        uses: actions/checkout@v4
+        with:
+          repository: alfianwahyu035-boop/Task-new
+          ref: main
+          token: ${{ secrets.SOURCE_REPO_TOKEN }}
+          path: _tasknew_source
+          persist-credentials: false
+
+      - name: Copy source into android-source only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f _tasknew_source/package.json || {
+            echo '::error::Task-new/package.json tidak ditemukan sesudah checkout.'
+            exit 1
+          }
+          mkdir -p android-source
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='*.keystore' \
+            --exclude='*.jks' \
+            _tasknew_source/ android-source/
+          echo 'Source berhasil disalin ke android-source/; file website root tidak diubah.'
+
+      - name: Commit and push imported source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -- android-source
+          if git diff --cached --quiet; then
+            echo 'Tidak ada perubahan: source Android sudah sama.'
+            exit 0
+          fi
+          git commit -m 'Import Task-new into android-source'
+          git push origin HEAD:main
