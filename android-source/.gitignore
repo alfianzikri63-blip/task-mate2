@@ -1,9 +1,0 @@
-node_modules/
-android/
-!android-icons/
-*.jks
-*.keystore
-.env
-.env.*
-*.apk
-.DS_Store

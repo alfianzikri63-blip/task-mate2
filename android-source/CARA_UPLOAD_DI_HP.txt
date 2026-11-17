@@ -1,5 +1,0 @@
-ZIP ini berisi folder root android-source. Ekstrak dahulu.
-Bila GitHub di HP tidak bisa upload folder sekaligus, buka folder tujuan
-android-source di GitHub kemudian unggah file per folder, sambil mempertahankan
-susunan scripts/, icons/, android-icons/, android-sounds/, .github/workflows/.
-JANGAN upload ZIP sebagai satu file GitHub dan berharap kode otomatis aktif.
