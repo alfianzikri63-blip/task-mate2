@@ -1,0 +1,155 @@
+name: Release Signed TaskMate APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: taskmate-apk-release
+  cancel-in-progress: false
+
+jobs:
+  signed-release:
+    name: Build and publish signed Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Read APK version and prevent duplicate release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'ERROR: package.json version must be MAJOR.MINOR.PATCH'
+            exit 1
+          fi
+          TAG="v${VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "ERROR: release $TAG already exists. Increase package.json version first."
+            exit 1
+          fi
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Preparing first/next APK release $TAG"
+
+      - name: Install Capacitor dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Restore PRIVATE Android signing key
+        shell: bash
+        env:
+          TM_KEYSTORE_BASE64: ${{ secrets.TM_KEYSTORE_BASE64 }}
+          TM_STORE_PASSWORD: ${{ secrets.TM_STORE_PASSWORD }}
+          TM_KEY_ALIAS: ${{ secrets.TM_KEY_ALIAS }}
+          TM_KEY_PASSWORD: ${{ secrets.TM_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$TM_KEYSTORE_BASE64" || -z "$TM_STORE_PASSWORD" || -z "$TM_KEY_ALIAS" || -z "$TM_KEY_PASSWORD" ]]; then
+            echo 'ERROR: Set all four secrets: TM_KEYSTORE_BASE64, TM_STORE_PASSWORD, TM_KEY_ALIAS, TM_KEY_PASSWORD'
+            exit 1
+          fi
+          KEYSTORE_PATH="$RUNNER_TEMP/taskmate-release.jks"
+          printf '%s' "$TM_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          # Do not upload or commit the keystore. Only its path is passed to Gradle.
+          echo "TM_KEYSTORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Generate Android project with release signing
+        env:
+          TM_STORE_PASSWORD: ${{ secrets.TM_STORE_PASSWORD }}
+          TM_KEY_ALIAS: ${{ secrets.TM_KEY_ALIAS }}
+          TM_KEY_PASSWORD: ${{ secrets.TM_KEY_PASSWORD }}
+        run: npm run android:init
+
+      - name: Build signed APK
+        env:
+          TM_STORE_PASSWORD: ${{ secrets.TM_STORE_PASSWORD }}
+          TM_KEY_ALIAS: ${{ secrets.TM_KEY_ALIAS }}
+          TM_KEY_PASSWORD: ${{ secrets.TM_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          cd ..
+          cp android/app/build/outputs/apk/release/app-release.apk TaskMate.apk
+          test -s TaskMate.apk
+          APK_SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -n "$APK_SIGNER"
+          "$APK_SIGNER" verify --verbose TaskMate.apk
+
+      - name: Upload signed APK as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskMate-${{ env.APP_VERSION }}-signed-APK
+          path: TaskMate.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" ./TaskMate.apk \
+            --title "TaskMate $APP_VERSION" \
+            --notes "APK rilis TaskMate $APP_VERSION. Tanda tangan harus sama untuk update tanpa uninstall." \
+            --target main \
+            --latest
+
+      - name: Publish version info for in-app notification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import {readFileSync, writeFileSync} from 'node:fs';
+          const version = process.env.APP_VERSION;
+          const nums = version.split('.').map(Number);
+          const versionCode = nums[0]*100000 + nums[1]*1000 + nums[2];
+          const meta = JSON.parse(readFileSync('apk-update.json', 'utf8'));
+          meta.released = true;
+          meta.versionName = version;
+          meta.versionCode = versionCode;
+          meta.downloadUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/releases/download/v${version}/TaskMate.apk`;
+          meta.mandatory = true;
+          meta.notes = `TaskMate ${version} sudah tersedia. Segera perbarui APK resmi untuk memakai versi terbaru.`;
+          writeFileSync('apk-update.json', JSON.stringify(meta, null, 2) + '\n');
+          JS
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apk-update.json
+          if git diff --staged --quiet; then
+            echo 'Version metadata already matches the release.'
+          else
+            git commit -m "Publish TaskMate APK update metadata ${RELEASE_TAG}"
+            git push origin HEAD:main
+          fi
