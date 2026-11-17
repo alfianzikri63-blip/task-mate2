@@ -1,5 +1,5 @@
-const CACHE = 'taskmate-v137-multi-camera-gallery-web';
-const ASSETS = ['./','./index.html','./styles.css','./themes.css','./app.js','./taskmate-web-reminders.js','./taskmate-web-update.js','./version.json','./excel-import.js','./Template_Import_TaskMate_Jadwal_Rak.xlsx','./roster-data.js','./config.js','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
+const CACHE = 'taskmate-v1371-workflow-test-android';
+const ASSETS = ['./','./index.html','./styles.css','./themes.css','./app.js','./excel-import.js','./Template_Import_TaskMate_Jadwal_Rak.xlsx','./roster-data.js','./config.js','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
 self.addEventListener('fetch',e=>{

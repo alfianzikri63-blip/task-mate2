@@ -1,0 +1,13 @@
+TASKMATE SOURCE APK ANDROID v1.37.0
+
+REPOSITORY: https://github.com/alfianwahyu035-boop/Task-new
+
+1. Ekstrak ZIP ini, unggah ISI ZIP ke root branch main repo Task-new. Jangan upload ZIP sebagai satu file. Pertahankan struktur folder .github/, scripts/, android-icons/, android-sounds/, icons/ dan www/.
+2. Jangan mengganti config.js, kunci signing atau nama paket com.taskmate.reminder bila Anda punya konfigurasi lain; paket ini memakai config publishable yang sudah di repo sebelumnya.
+3. Pastikan GitHub Actions repository sudah memiliki empat secrets yang sama dengan rilis signed sebelumnya: TM_KEYSTORE_BASE64, TM_STORE_PASSWORD, TM_KEY_ALIAS, TM_KEY_PASSWORD. Simpan keystore di tempat privat.
+4. Di GitHub: Actions > Release Signed TaskMate APK > Run workflow. Tunggu status SUCCESS. Hanya setelah berhasil, rilis v1.37.0 dan apk-update.json otomatis diperbarui.
+5. Install TaskMate.apk dari halaman Releases. Untuk upgrade tanpa uninstall, Android membutuhkan package id dan signing key yang sama. Jangan gunakan debug APK untuk mengganti rilis signed.
+6. Uji multi-foto, crop dan Galeri di HP Android fisik.
+
+PENTING: Source ini sudah memuat *kode* updater wajib, pengingat lokal dan suara WAV sebelumnya. Tidak ada APK jadi dalam ZIP; Actions tetap diperlukan untuk membangun rilis signed. Jangan membuat link APK v1.37.0 sebelum workflow berhasil.
+PERSIAPAN: npm install lalu npm run android:init (jika memakai PC). www/ disertakan sebagai preview bundle dan selalu dibuat ulang dari root saat build.

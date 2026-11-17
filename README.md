@@ -1,53 +1,39 @@
-# TaskMate · GitHub Pages
+# TaskMate v1.37.0 — Kamera multi-foto & galeri terpusat
 
-Deploy hanya file website: `index.html`, `app.js`, `styles.css`, `config.js`, `roster-data.js`, `excel-import.js`, `Template_Import_TaskMate_Jadwal_Rak.xlsx`, `sw.js`, `manifest.webmanifest`, folder `icons/`.
+Source resmi yang disesuaikan dari **Task-new** (Android) dan **Task-mate** (website) per 15 November 2026. `app.js`, `index.html`, `styles.css`, `themes.css`, `sw.js`, `v137-features.css`, dan ikon website pada kedua paket adalah sama. Source lama dan data pada Supabase tidak dihapus.
 
-## Publikasi
-1. Buat repo baru di GitHub, contoh `taskmate-reminder` (public jika menggunakan Pages di akun gratis).
-2. Unggah **isi ZIP ini** ke root repo (jangan unggah ZIP sebagai satu file).
-3. Buka Settings → Pages → Build and deployment → Deploy from a branch → `main` → `/(root)` → Save.
-4. Buka URL yang GitHub tampilkan. Tunggu hingga status deployment berhasil.
-5. Buat akun admin pertama, verifikasi email Supabase, lalu buat tim.
-6. Dari menu Checklist Shift → **Hubungkan akun karyawan**, tekan **Unduh template Excel**. Isi sheet **Jadwal** (Nama, Tanggal, Kode Shift) dan **Rak** (Nama, Nomor Rak), lalu upload lewat dua tombol Import Excel. Format `.xlsx`, `.xls`, `.xlsm` didukung. Bisa satu file berisi dua sheet atau file terpisah. Jangan upload Excel karyawan ke GitHub. JSON versi lama tetap didukung sebagai opsi cadangan.
-7. Minta setiap karyawan mendaftar dan memasukkan kode tim. Akun akan berstatus MENUNGGU dan tidak bisa melihat data. Admin membuka menu Tim & Anggota untuk menyetujui, menolak atau menonaktifkan akun, dan mengatur peran. Setelah disetujui admin menautkan nama ke akun satu kali. Impor Excel selanjutnya akan sinkron ke karyawan yang sudah tertaut; karyawan baru perlu ditautkan lebih dahulu.
-8. Uji dua HP, bukti kamera, dan checklist sebelum digunakan operasional.
+## Yang baru di v1.37.0
 
-**Penting:** URL dan publishable key di `config.js` boleh berada di browser, tetapi **jangan** memasukkan `service_role` atau secret key. Roster/rak tidak ada dalam file publik. Bucket Supabase dibuat privat. GitHub Pages hanya hosting frontend: AI Vision dan Push memerlukan Edge Functions, secret, dan scheduler yang dikonfigurasi terpisah.
+- **Kamera multi-foto 1–10 jepretan dalam satu sesi**, dengan preview, hapus foto antrean, ambil ulang, dan **Simpan Semua**.
+- Foto rak tetap melalui **crop**; setiap foto mendapat timestamp dari saat kamera mengambil jepretan, bukan saat pengiriman.
+- Pengiriman dilakukan **satu foto per satu foto** memakai endpoint/tabel foto yang sudah ada. Jika satu unggahan gagal, foto yang belum diunggah tetap ada dalam sesi sehingga dapat diulang; foto yang sudah berhasil tidak dikirim ulang.
+- Tab baru **Galeri** berisi foto tugas umum, checklist shift, Sisir Harga, dan Map Do It, dengan filter tanggal, shift, jenis, PIC dan ekspor JPG grid (maks. 12 gambar per JPG, dibagi otomatis jika lebih banyak).
+- Tidak mengunggah foto dari galeri HP sebagai bukti: tetap wajib memakai kamera asli di aplikasi, HTTPS/izin kamera, dan audit timestamp.
 
-**Supabase Auth:** setelah situs GitHub Pages aktif, daftarkan URL situs di Supabase Dashboard → Authentication → URL Configuration → Redirect URLs (dan Site URL bila perlu), untuk tautan verifikasi/reset.
+## Keamanan dan data
 
-**Manajemen akun v10:** kode undangan tidak otomatis memberikan akses. Karyawan harus disetujui admin melalui menu Tim; RLS database memblokir akses anggota pending, ditolak, dan nonaktif. Admin terakhir tidak dapat diturunkan atau dinonaktifkan. Jangan sebarkan kode tim secara publik. Foto tetap tunduk pada validasi shift/time server yang sudah dipasang.
+- **Tidak ada migrasi SQL, tabel tambahan, atau pemindahan data Supabase**. Bucket Storage tetap privat: `task-evidence`, `shift-evidence`, dan `shift-extra-evidence`.
+- Galeri hanya membaca foto sesuai hak akses Supabase RLS. Karyawan difilter untuk hanya melihat foto yang diunggah akunnya; Admin Tim dapat melihat foto tim sesuai izin RLS.
+- Signed URL gambar berumur pendek; dokumen foto asli tidak disalin ke GitHub atau disimpan lagi sebagai galeri publik.
+- Galeri memuat data berdasarkan tanggal pilihan; untuk menjaga performa, setiap kueri utama membatasi 1.000 baris. Jika sangat banyak, pilih tanggal lebih spesifik.
+- `config.js` hanya berisi publishable key yang memang ditujukan ke browser. Jangan memasukkan service_role, keystore, atau password ke repo publik.
+- Jadwal shift, push/pengingat lokal Android, pembaruan APK wajib, nama package Android, semua tema, ikon kustom, dan laporan sebelumnya tetap dipertahankan.
 
-## Aturan pembaruan Excel
-- Kolom `Nama` dicocokkan secara tepat (abaikan kapital/spasi ganda); nama lama dipertahankan supaya tautan akun tidak berubah. Jangan menggunakan nama panggilan berbeda untuk karyawan yang sama.
-- Impor Jadwal menambah atau mengubah **tanggal yang ada dalam file saja**; tanggal lain tetap disimpan. Untuk akun tertaut, jadwal **besok dan seterusnya** diperbarui di roster online; jadwal hari ini/masa lalu tidak ditimpa agar audit aman.
-- Impor Rak menggantikan daftar rak **untuk PIC yang tercantum di file saja**; penugasan lain tidak diubah. Rak yang dikeluarkan dari daftar dinonaktifkan, bukan dihapus, sehingga foto historis tetap ada.
-- Kode shift yang didukung: `P7` (Shift 1), `S14` (Shift 2), `M22` (Shift 3), `O`, `AO`, `MT`, `C`; juga menerima label `SHIFT 1/2/3`, `OFF`, `CUTI`.
-- File Excel diproses **di browser admin**, lalu hanya data terstruktur yang disimpan ke tabel Supabase privat `shift_staff_seed`. Website tidak mengunggah file asli ke GitHub.
-- Pustaka pembaca Excel adalah **SheetJS Community Edition 0.20.3** dari CDN resmi dan membutuhkan koneksi internet saat pertama memuatnya.
-- Format jadwal matriks kantor yang memiliki kolom `NAMA`, tanggal `1,2,...,30/31` dan judul seperti `SCHEDULE NOVEMBER 2026` juga didukung (contoh `2026NEW.xlsx`). Format daftar rak khusus lain yang belum mengikuti template perlu disesuaikan menjadi `Nama / Nomor Rak`.
+## Catatan dan keterbatasan
 
-## Upgrade v9 → v10 (Manajemen Akun)
-- Jika v9 sudah diunggah, gunakan **ZIP patch v10**: ganti `app.js`, `sw.js`, dan `README.md` saja. Data Supabase tetap tersimpan.
-- Server Supabase TASKMATE-REMINDER sudah menerima perubahan: status `pending/approved/rejected/disabled`, approval admin, dan pembatasan RLS. Tidak perlu menjalankan SQL manual.
-- Admin: **Tim → Permintaan Persetujuan**, klik **Setujui / Tolak**. Akun aktif dapat ditetapkan Admin/Karyawan atau dinonaktifkan.
-- Pendaftaran baru via login/daftar langsung di aplikasi, bukan membuat user lewat dashboard Supabase. Jika verifikasi email aktif, pengguna perlu verifikasi dulu.
-- Jika website masih versi lama, bersihkan cache browser atau tutup dan buka kembali situs setelah memperbarui GitHub Pages.
+- Antrean foto yang **belum berhasil dikirim hanya berada di RAM sesi kamera**; menutup aplikasi atau kamera akan menghilangkannya. Simpan sebelum keluar.
+- Penggabungan grid dilakukan lokal dalam bentuk JPG yang diunduh, tidak mengganti foto asli.
+- Galeri menampilkan foto yang tercatat dalam tabel Supabase. Jika foto di Storage belum mempunyai catatan database, tidak akan tampil.
+- Menampilkan status terunggah membutuhkan sinkronisasi Cloud. Jaringan tetap diperlukan untuk upload foto dan melihat galeri lintas perangkat.
+- **Push sungguhan saat aplikasi ditutup** tetap memerlukan FCM/Web Push server; pengingat lokal Android tetap terjaga, website hanya dapat membunyikan pengingat saat halaman aktif.
 
-## Membuat APK Android (tambahan v10)
+## Pengujian yang disarankan setelah dipasang
 
-Paket ini juga memiliki build APK otomatis dari **GitHub Actions**. Lihat [`README-APK.md`](README-APK.md) untuk langkah tanpa Android Studio. APK hasil Actions adalah **debug APK** untuk percobaan.
+1. Masuk menggunakan akun tim. Buka pekerjaan lalu Kamera → ambil 3 foto, Tambah foto setelah masing-masing foto pertama dan kedua → Simpan Semua. Pastikan tiga foto tampil di galeri pekerjaan.
+2. Buka Sisir Harga dan uji crop foto, lalu Map Do It dengan nama rak; ambil lebih dari satu foto tanpa menutup kamera.
+3. Aktifkan mode pesawat sesaat saat upload kedua (jika lingkungan uji memungkinkan). Pastikan foto yang belum terkirim dapat dicoba ulang tanpa pengiriman duplikat.
+4. Buka menu Galeri, pilih tanggal kerja, filter jenis, shift, dan PIC; unduh JPG grid dan periksa folder Download.
+5. Uji akun Admin dan Karyawan terpisah, pastikan karyawan tidak melihat foto orang lain dan tidak dapat mengubah foto historis.
+6. Cek kembali ikon launcher TaskMate, semua tema, fitur foto laporan/PDF lama, pengingat shift, dan notifikasi wajib update.
 
-
-## Update v11: Setujui + Tautkan + Sinkronkan
-- Admin membuka **Tim → Permintaan Persetujuan**, lalu klik **Setujui + Tautkan** dan pilih nama dari Excel.
-- Proses berjalan atomik di server: status disetujui, akun ditautkan, rak diaktifkan, dan jadwal dari tanggal hari ini serta mendatang diimpor. Bila ada masalah, seluruh perubahan dibatalkan.
-- Untuk akun yang sudah disetujui namun belum tertaut, gunakan **Tautkan ke Excel** pada daftar Anggota Aktif.
-- Admin dapat memilih **Setujui saja (tautkan nanti)** bila data Excel belum siap.
-- Nama staf yang sudah tertaut tidak dapat digunakan oleh akun lain. Pencocokan tetap manual oleh admin.
-- Update server Supabase telah dipasang pada proyek TASKMATE-REMINDER. File patch hanya mengubah `app.js` dan `sw.js`; untuk GitHub Actions gunakan paket lengkap jika dibutuhkan.
-- Foto/checklist historis tidak dihapus. Push asli APK masih memerlukan integrasi native.
-
-## Tema Pribadi v13
-
-Buka **Setelan → Tema aplikasi**. Ada 10 tema baru + tema Original, preferensi lokal per akun/HP. Lihat `README-TEMA-v13.md`.
+Lihat panduan khusus dalam ZIP APK atau website untuk pemasangan masing-masing.
