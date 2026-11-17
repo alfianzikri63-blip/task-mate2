@@ -1,0 +1,9 @@
+{
+  "name": "taskmate-web",
+  "version": "1.37.0",
+  "private": true,
+  "description": "TaskMate Web v1.37.0 — synchronized multi-photo camera, central cloud gallery, web reminders & mandatory website updates",
+  "scripts": {
+    "check": "node --check app.js && node --check taskmate-web-reminders.js && node --check taskmate-web-update.js"
+  }
+}
